@@ -2,10 +2,10 @@
   "name": "glslx-vscode",
   "description": "A language service for GLSLX",
   "version": "0.1.8",
-  "publisher": "evanw",
+  "publisher": "MurkyMeow",
   "repository": {
     "type": "git",
-    "url": "https://github.com/evanw/glslx-vscode"
+    "url": "https://github.com/MurkyMeow/glslx-vscode"
   },
   "license": "MIT",
   "engines": {
@@ -40,6 +40,20 @@
         "language": "glslx",
         "scopeName": "source.glslx",
         "path": "./syntaxes/GLSLX.tmLanguage"
+      },
+      {
+        "injectTo": [
+          "source.js",
+          "source.js.jsx",
+          "source.jsx",
+          "source.ts",
+          "source.tsx"
+        ],
+        "scopeName": "string.template",
+        "path": "./syntaxes/glslx-literal.json",
+        "embeddedLanguages": {
+          "source.glslx": "glslx"
+        }
       }
     ]
   },
