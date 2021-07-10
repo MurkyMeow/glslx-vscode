@@ -42,6 +42,8 @@
         "path": "./syntaxes/GLSLX.tmLanguage"
       },
       {
+        "scopeName": "glslx-literal",
+        "path": "./syntaxes/glslx-literal.json",
         "injectTo": [
           "source.js",
           "source.js.jsx",
@@ -49,8 +51,6 @@
           "source.ts",
           "source.tsx"
         ],
-        "scopeName": "string.template",
-        "path": "./syntaxes/glslx-literal.json",
         "embeddedLanguages": {
           "source.glslx": "glslx"
         }

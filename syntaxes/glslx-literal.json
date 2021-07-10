@@ -1,6 +1,5 @@
 {
   "scopeName": "glslx-literal",
-  "fileTypes": ["js", "jsx", "ts", "tsx"],
   "injectionSelector": "L:source -comment -string",
   "patterns": [
     {
