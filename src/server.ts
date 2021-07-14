@@ -83,7 +83,9 @@ function buildOnce(): Record<string, glslx.CompileResultIDE> {
     let docs: Record<string, string> = {};
 
     for (let doc of openDocuments.all()) {
-      docs[doc.uri] = doc.getText();
+      docs[doc.uri] = doc.languageId === 'glslx'
+        ? doc.getText()
+        : getVirtualGlslxContent(doc.getText());
     }
 
     function fileAccess(includeText: string, relativeURI: string) {
@@ -343,6 +345,28 @@ function computeSignature(request: server.SignatureHelpParams): server.Signature
       })),
     };
   }
+}
+
+// replace all javascript with whitespaces and leave only glslx content
+// reference: https://code.visualstudio.com/api/language-extensions/embedded-languages
+function getVirtualGlslxContent(documentText: string): string {
+  let result = '';
+  let isInsideGlslx = false;
+
+  for (let i = 0; i < documentText.length; i += 1) {
+    const char = documentText[i];
+
+    if (char === '`') {
+      isInsideGlslx = !isInsideGlslx;
+      result += ' ';
+    } else if (isInsideGlslx) {
+      result += char;
+    } else {
+      result += char === '\n' ? '\n' : ' '
+    }
+  }
+
+  return result;
 }
 
 function main(): void {

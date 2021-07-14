@@ -6,17 +6,10 @@
       "begin": "(glsl|glslify|vert|frag|/* ?glsl ?*/)(`)|(`)//(inline|glsl)",
       "beginCaptures": {
         "1": {
-          "patterns": [
-            {
-              "include": "source.ts#expression"
-            }
-          ]
-        },
-        "2": {
           "name": "entity.name.function.tagged-template.js"
         },
-        "3": {
-          "name": "punctuation.definition.string.template.begin.js string.template.js"
+        "2": {
+          "name": "punctuation.definition.string.template.begin.js"
         }
       },
       "end": "`",

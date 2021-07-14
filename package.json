@@ -15,7 +15,11 @@
     "Programming Languages"
   ],
   "activationEvents": [
-    "onLanguage:glslx"
+    "onLanguage:glslx",
+    "onLanguage:javascript",
+    "onLanguage:javascriptreact",
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact"
   ],
   "scripts": {
     "vscode:prepublish": "tsc"
