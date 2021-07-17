@@ -1,5 +1,5 @@
 {
-  "name": "glslx-vscode",
+  "name": "glslx-vscode-literal",
   "description": "A language service for GLSLX",
   "version": "0.1.8",
   "publisher": "MurkyMeow",
