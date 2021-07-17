@@ -6,14 +6,14 @@ import * as server from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import {
-  GlslxDoc,
-  GlslxResult,
+  ParsedDoc,
+  CompiledResult,
   getGlslxRegions,
   getVirtualGlslxContent,
   isPositionInsideRegion,
 } from './embeddedSupport';
 
-let buildResults: () => Record<string, GlslxResult[] | undefined> = () => ({});
+let buildResults: () => Record<string, CompiledResult[] | undefined> = () => ({});
 let openDocuments: server.TextDocuments<TextDocument>;
 let connection: server.Connection;
 let timeout: NodeJS.Timeout;
@@ -83,12 +83,12 @@ function sendDiagnostics(diagnostics: glslx.Diagnostic[], unusedSymbols: glslx.U
   }
 }
 
-function buildOnce(): Record<string, GlslxResult[]> {
-  let results: Record<string, GlslxResult[]> = {};
+function buildOnce(): Record<string, CompiledResult[]> {
+  let results: Record<string, CompiledResult[]> = {};
   reportErrors(() => {
     let unusedSymbols: glslx.UnusedSymbol[] = [];
     let diagnostics: glslx.Diagnostic[] = [];
-    let docs: Record<string, GlslxDoc> = {};
+    let docs: Record<string, ParsedDoc> = {};
 
     for (let doc of openDocuments.all()) {
       const source = doc.getText();
@@ -138,7 +138,7 @@ function buildOnce(): Record<string, GlslxResult[]> {
           fileAccess,
         })
 
-        results[doc.uri].push({ region, compiled });
+        results[doc.uri].push({ region, result: compiled });
         unusedSymbols.push.apply(unusedSymbols, compiled.unusedSymbols);
         diagnostics.push.apply(diagnostics, compiled.diagnostics);
       });
@@ -159,7 +159,7 @@ function buildLater(): void {
   timeout = setTimeout(buildResults, 100);
 }
 
-function getResult(request: server.TextDocumentPositionParams): GlslxResult | undefined {
+function getResult(request: server.TextDocumentPositionParams): CompiledResult | undefined {
   const doc = openDocuments.get(request.textDocument.uri);
   if (!doc) return undefined;
 
@@ -172,7 +172,7 @@ function computeTooltip(request: server.TextDocumentPositionParams): server.Hove
   let result = getResult(request);
 
   if (result) {
-    let response = result.compiled.tooltipQuery({
+    let response = result.result.tooltipQuery({
       source: request.textDocument.uri,
       line: request.position.line,
       column: request.position.character,
@@ -198,7 +198,7 @@ function computeDefinitionLocation(request: server.TextDocumentPositionParams): 
   let result = getResult(request);
 
   if (result) {
-    let response = result.compiled.definitionQuery({
+    let response = result.result.definitionQuery({
       source: request.textDocument.uri,
       line: request.position.line,
       column: request.position.character,
@@ -243,7 +243,7 @@ function computeRenameEdits(request: server.RenameParams): server.WorkspaceEdit 
   let result = getResult(request);
 
   if (result) {
-    let response = result.compiled.renameQuery({
+    let response = result.result.renameQuery({
       source: request.textDocument.uri,
       line: request.position.line,
       column: request.position.character,
@@ -328,7 +328,7 @@ function computeCompletion(request: server.CompletionParams): server.CompletionI
   let result = getResult(request);
 
   if (result) {
-    let response = result.compiled.completionQuery({
+    let response = result.result.completionQuery({
       source: request.textDocument.uri,
       line: request.position.line,
       column: request.position.character,
@@ -353,7 +353,7 @@ function computeSignature(request: server.SignatureHelpParams): server.Signature
   let result = getResult(request);
 
   if (result) {
-    let response = result.compiled.signatureQuery({
+    let response = result.result.signatureQuery({
       source: request.textDocument.uri,
       line: request.position.line,
       column: request.position.character,

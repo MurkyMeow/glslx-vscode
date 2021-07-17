@@ -1,22 +1,22 @@
 import * as glslx from 'glslx';
 
-export interface GlslxRegion {
+export interface Region {
   start: number;
   end: number;
 }
 
-export interface GlslxDoc {
+export interface ParsedDoc {
   source: string;
-  regions: GlslxRegion[];
+  regions: Region[];
 }
 
-export interface GlslxResult {
-  region: GlslxRegion;
-  compiled: glslx.CompileResultIDE;
+export interface CompiledResult {
+  region: Region;
+  result: glslx.CompileResultIDE;
 }
 
-export function getGlslxRegions(documentText: string): GlslxRegion[] {
-  const result: GlslxRegion[] = [];
+export function getGlslxRegions(documentText: string): Region[] {
+  const result: Region[] = [];
   let startIdx = 0;
   let isInsideTag = false;
 
@@ -38,7 +38,7 @@ export function getGlslxRegions(documentText: string): GlslxRegion[] {
 
 // replace all javascript with whitespaces and leave only glslx content
 // reference: https://code.visualstudio.com/api/language-extensions/embedded-languages
-export function getVirtualGlslxContent(documentText: string, region: GlslxRegion): string {
+export function getVirtualGlslxContent(documentText: string, region: Region): string {
   let result = '';
 
   for (let i = 0; i < region.start; i += 1) {
@@ -54,6 +54,6 @@ export function getVirtualGlslxContent(documentText: string, region: GlslxRegion
   return result;
 }
 
-export function isPositionInsideRegion(region: GlslxRegion, offset: number): boolean {
+export function isPositionInsideRegion(region: Region, offset: number): boolean {
   return region.start > offset && region.end < offset;
 }
