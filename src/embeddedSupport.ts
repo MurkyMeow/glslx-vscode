@@ -17,20 +17,22 @@ export interface CompiledResult {
 
 export function getGlslxRegions(documentText: string): Region[] {
   const regions: Region[] = [];
+  const tagPattern = /glsl|vert|frag|\/\* ?glsl ?\*\//g;
 
-  let startIdx = 0;
-  let isInsideTag = false;
+  let match: RegExpExecArray | null;
 
-  for (let i = 0; i < documentText.length; i += 1) {
-    const char = documentText[i];
+  while (match = tagPattern.exec(documentText)) {
+    const tickIdx = match.index + match[0].length;
 
-    if (char === '`') {
-      if (isInsideTag) {
-        regions.push({ start: startIdx, end: i });
-        isInsideTag = false;
-      } else {
-        startIdx = i + 1;
-        isInsideTag = /^(glsl|vert|frag|\/\* ?glsl ?\*\/)/.test(documentText.slice(i - 4))
+    if (documentText[tickIdx] === '`') {
+      // skip opening tick
+      const start = tickIdx + 1;
+
+      // find closing tick
+      const end = documentText.indexOf('`', start + 1);
+
+      if (end > 0) {
+        regions.push({ start, end });
       }
     }
   }
