@@ -40,14 +40,15 @@ export function getGlslxRegions(documentText: string): Region[] {
 // reference: https://code.visualstudio.com/api/language-extensions/embedded-languages
 export function getVirtualGlslxContent(documentText: string, region: Region): string {
   let result = '';
+  let i = 0;
 
-  for (let i = 0; i < region.start; i += 1) {
+  for (; i < region.start; i += 1) {
     result += documentText[i] === '\n' ? '\n' : ' '
   }
-  for (let i = region.start + 1; i < region.end; i += 1) {
+  for (; i < region.end; i += 1) {
     result += documentText[i];
   }
-  for (let i = region.end + 1; i < documentText.length; i += 1) {
+  for (; i < documentText.length; i += 1) {
     result += documentText[i] === '\n' ? '\n' : ' '
   }
 
