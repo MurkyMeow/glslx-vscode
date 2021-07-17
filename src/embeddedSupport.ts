@@ -16,7 +16,8 @@ export interface CompiledResult {
 }
 
 export function getGlslxRegions(documentText: string): Region[] {
-  const result: Region[] = [];
+  const regions: Region[] = [];
+
   let startIdx = 0;
   let isInsideTag = false;
 
@@ -25,15 +26,16 @@ export function getGlslxRegions(documentText: string): Region[] {
 
     if (char === '`') {
       if (isInsideTag) {
-        result.push({ start: startIdx, end: i });
+        regions.push({ start: startIdx, end: i });
+        isInsideTag = false;
       } else {
-        startIdx = i;
+        startIdx = i + 1;
+        isInsideTag = /^(glsl|vert|frag|\/\* ?glsl ?\*\/)/.test(documentText.slice(i - 4))
       }
-      isInsideTag = !isInsideTag;
     }
   }
 
-  return result;
+  return regions;
 }
 
 // replace all javascript with whitespaces and leave only glslx content
