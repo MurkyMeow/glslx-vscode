@@ -11,7 +11,7 @@ export function activate(context: vscode.ExtensionContext) {
   };
 
   let clientOptions: client.LanguageClientOptions = {
-    documentSelector: ['glslx'],
+    documentSelector: ['glslx', 'javascript', 'javascriptreact', 'typescript', 'typescriptreact'],
     synchronize: {
       fileEvents: vscode.workspace.createFileSystemWatcher('**/*.glslx'),
     },
