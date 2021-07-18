@@ -20,7 +20,7 @@ export interface CompiledResult {
 
 export function getGlslxRegions(documentText: string): Region[] {
   const regions: Region[] = [];
-  const tagPattern = /glsl|vert|frag|\/\* ?glsl ?\*\//g;
+  const tagPattern = /glsl|vert|frag|\/\* ?glsl ?\*\/ ?/g;
 
   let match: RegExpExecArray | null;
 
