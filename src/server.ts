@@ -13,10 +13,19 @@ import {
   isPositionInsideRegion,
 } from './embeddedSupport';
 
+interface GlslxDiagnostics {
+  diagnostics: glslx.Diagnostic[];
+  unusedSymbols: glslx.UnusedSymbol[];
+}
+
 let buildResults: () => Record<string, CompiledResult[] | undefined> = () => ({});
 let openDocuments: server.TextDocuments<TextDocument>;
 let connection: server.Connection;
 let timeout: NodeJS.Timeout;
+
+export function log(msg: string): void {
+  connection.window.showInformationMessage(msg);
+}
 
 function reportErrors(callback: () => void): void {
   try {
@@ -50,29 +59,36 @@ function pathToURI(value: string): string {
   return uri.file(value).toString();
 }
 
-function sendDiagnostics(diagnostics: glslx.Diagnostic[], unusedSymbols: glslx.UnusedSymbol[]): void {
+function getGlslxDocKey(doc: TextDocument, regionIdx: number): string {
+  return `${doc.uri}-region-${regionIdx}`;
+}
+
+function sendDiagnostics(diagnostics: Record<string, GlslxDiagnostics>): void {
   let map: Record<string, server.Diagnostic[]> = {};
 
-  for (let diagnostic of diagnostics) {
-    if (!diagnostic.range) continue;
-    let key = diagnostic.range.source;
-    let group = map[key] || (map[key] = []);
-    group.push({
-      severity: diagnostic.kind === 'error' ? server.DiagnosticSeverity.Error : server.DiagnosticSeverity.Warning,
-      range: convertRange(diagnostic.range),
-      message: diagnostic.text,
-    });
-  }
+  for (let key in diagnostics) {
+    const diagnostic = diagnostics[key];
 
-  for (let symbol of unusedSymbols) {
-    let key = symbol.range!.source;
-    let group = map[key] || (map[key] = []);
-    group.push({
-      severity: server.DiagnosticSeverity.Hint,
-      range: convertRange(symbol.range!),
-      message: `${JSON.stringify(symbol.name)} is never used in this file`,
-      tags: [server.DiagnosticTag.Unnecessary],
-    });
+    for (const d of diagnostic.diagnostics) {
+      if (!diagnostic.range) continue;
+      let group = map[key] || (map[key] = []);
+      group.push({
+        severity: diagnostic.kind === 'error' ? server.DiagnosticSeverity.Error : server.DiagnosticSeverity.Warning,
+        range: convertRange(diagnostic.range),
+        message: diagnostic.text,
+      });
+    }
+
+    for (let symbol of unusedSymbols) {
+      let key = symbol.range!.source;
+      let group = map[key] || (map[key] = []);
+      group.push({
+        severity: server.DiagnosticSeverity.Hint,
+        range: convertRange(symbol.range!),
+        message: `${JSON.stringify(symbol.name)} is never used in this file`,
+        tags: [server.DiagnosticTag.Unnecessary],
+      });
+    }
   }
 
   for (let doc of openDocuments.all()) {
@@ -86,8 +102,7 @@ function sendDiagnostics(diagnostics: glslx.Diagnostic[], unusedSymbols: glslx.U
 function buildOnce(): Record<string, CompiledResult[]> {
   let results: Record<string, CompiledResult[]> = {};
   reportErrors(() => {
-    let unusedSymbols: glslx.UnusedSymbol[] = [];
-    let diagnostics: glslx.Diagnostic[] = [];
+    let diagnostics: Record<string, GlslxDiagnostics> = {};
     let docs: Record<string, ParsedDoc> = {};
 
     for (let doc of openDocuments.all()) {
@@ -126,25 +141,22 @@ function buildOnce(): Record<string, CompiledResult[]> {
     for (let doc of openDocuments.all()) {
       const glslxDoc = docs[doc.uri];
 
-      if (!results[doc.uri]) {
-        results[doc.uri] = [];
-      }
+      results[doc.uri] = glslxDoc.regions.map((region, i) => {
+        const name = getGlslxDocKey(doc, i);
+        const contents = getVirtualGlslxContent(glslxDoc.source, region);
 
-      glslxDoc.regions.forEach((region, i) => {
-        const compiled = glslx.compileIDE({
-          name: doc.uri,
-          contents: getVirtualGlslxContent(glslxDoc.source, region),
-        }, {
-          fileAccess,
-        })
+        const result = glslx.compileIDE(contents, { fileAccess })
 
-        results[doc.uri].push({ region, result: compiled });
-        unusedSymbols.push.apply(unusedSymbols, compiled.unusedSymbols);
-        diagnostics.push.apply(diagnostics, compiled.diagnostics);
+        diagnostics[name] = {
+          diagnostics: result.diagnostics,
+          unusedSymbols: result.unusedSymbols,
+        }
+
+        return { name, region, result };
       });
     }
 
-    sendDiagnostics(diagnostics, unusedSymbols);
+    sendDiagnostics(diagnostics);
   });
   return results;
 }
@@ -160,12 +172,16 @@ function buildLater(): void {
 }
 
 function getResult(request: server.TextDocumentPositionParams): CompiledResult | undefined {
+  // connection.window.showInformationMessage(
+  //   `[${openDocuments.keys().join(',')}][${request.textDocument.uri}]`
+  // );
   const doc = openDocuments.get(request.textDocument.uri);
-  if (!doc) return undefined;
+  if (!doc) return;
 
   const result = buildResults()[request.textDocument.uri];
+  const finding = result?.find(x => isPositionInsideRegion(x.region, doc.offsetAt(request.position)))
 
-  return result?.find(x => isPositionInsideRegion(x.region, doc.offsetAt(request.position)));
+  return finding;
 }
 
 function computeTooltip(request: server.TextDocumentPositionParams): server.Hover | undefined {
@@ -173,7 +189,7 @@ function computeTooltip(request: server.TextDocumentPositionParams): server.Hove
 
   if (result) {
     let response = result.result.tooltipQuery({
-      source: request.textDocument.uri,
+      source: result.name,
       line: request.position.line,
       column: request.position.character,
 
@@ -199,7 +215,7 @@ function computeDefinitionLocation(request: server.TextDocumentPositionParams): 
 
   if (result) {
     let response = result.result.definitionQuery({
-      source: request.textDocument.uri,
+      source: result.name,
       line: request.position.line,
       column: request.position.character,
     });
@@ -218,7 +234,7 @@ function computeDefinitionLocation(request: server.TextDocumentPositionParams): 
 
 //   if (result) {
 //     let response = result.symbolsQuery({
-//       source: request.textDocument.uri,
+//       source: result.name,
 //     });
 
 //     if (response.symbols !== null) {
@@ -244,7 +260,7 @@ function computeRenameEdits(request: server.RenameParams): server.WorkspaceEdit 
 
   if (result) {
     let response = result.result.renameQuery({
-      source: request.textDocument.uri,
+      source: result.name,
       line: request.position.line,
       column: request.position.character,
     });
@@ -329,7 +345,7 @@ function computeCompletion(request: server.CompletionParams): server.CompletionI
 
   if (result) {
     let response = result.result.completionQuery({
-      source: request.textDocument.uri,
+      source: result.name,
       line: request.position.line,
       column: request.position.character,
     });
@@ -354,7 +370,7 @@ function computeSignature(request: server.SignatureHelpParams): server.Signature
 
   if (result) {
     let response = result.result.signatureQuery({
-      source: request.textDocument.uri,
+      source: result.name,
       line: request.position.line,
       column: request.position.character,
     });
@@ -427,13 +443,13 @@ function main(): void {
     });
 
     // Support the go to symbol feature
-    // connection.onDocumentSymbol(request => {
-    //   let info: server.SymbolInformation[] | undefined;
-    //   reportErrors(() => {
-    //     info = computeDocumentSymbols(request);
-    //   });
-    //   return info!;
-    // });
+    connection.onDocumentSymbol(request => {
+      let info: server.SymbolInformation[] | undefined;
+      // reportErrors(() => {
+      //   info = computeDocumentSymbols(request);
+      // });
+      return info;
+    });
 
     // Support the "rename symbol" feature
     connection.onRenameRequest(request => {

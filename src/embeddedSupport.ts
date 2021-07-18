@@ -1,4 +1,6 @@
 import * as glslx from 'glslx';
+import { TextDocument } from 'vscode';
+import { log } from './server';
 
 export interface Region {
   start: number;
@@ -11,6 +13,7 @@ export interface ParsedDoc {
 }
 
 export interface CompiledResult {
+  name: string;
   region: Region;
   result: glslx.CompileResultIDE;
 }
@@ -60,5 +63,9 @@ export function getVirtualGlslxContent(documentText: string, region: Region): st
 }
 
 export function isPositionInsideRegion(region: Region, offset: number): boolean {
-  return region.start > offset && region.end < offset;
+  return region.start < offset && region.end > offset;
+}
+
+export function getDocRegionKey(doc: TextDocument, regionIdx: number): string {
+  return `${doc.uri}${regionIdx}`;
 }
