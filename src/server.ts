@@ -18,10 +18,6 @@ let openDocuments: server.TextDocuments<TextDocument>;
 let connection: server.Connection;
 let timeout: NodeJS.Timeout;
 
-export function log(msg: string): void {
-  connection.window.showInformationMessage(msg);
-}
-
 function reportErrors(callback: () => void): void {
   try {
     callback();

@@ -65,7 +65,3 @@ export function getVirtualGlslxContent(documentText: string, region: Region): st
 export function isPositionInsideRegion(region: Region, offset: number): boolean {
   return region.start < offset && region.end > offset;
 }
-
-export function getDocRegionKey(doc: TextDocument, regionIdx: number): string {
-  return `${doc.uri}${regionIdx}`;
-}
