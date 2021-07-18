@@ -261,13 +261,13 @@ function computeRenameEdits(request: server.RenameParams): server.WorkspaceEdit 
       let map: Record<string, server.TextEdit[]> = {};
 
       for (let range of response.ranges) {
-        let edits = map[range.source];
+        let edits = map[result.docUri];
         if (!edits) {
-          let doc = openDocuments.get(range.source);
-          edits = map[range.source] = [];
+          let doc = openDocuments.get(result.docUri);
+          edits = map[result.docUri] = [];
           if (doc) {
             documentChanges.push({
-              textDocument: { uri: range.source, version: doc.version },
+              textDocument: { uri: result.docUri, version: doc.version },
               edits,
             });
           }
