@@ -72,8 +72,7 @@ function sendDiagnostics(results: Record<string, CompiledResult[]>): void {
       }
 
       for (let symbol of unusedSymbols) {
-        let key = symbol.range!.source;
-        let group = map[key] || (map[key] = []);
+        let group = map[docUri] || (map[docUri] = []);
         group.push({
           severity: server.DiagnosticSeverity.Hint,
           range: convertRange(symbol.range!),
