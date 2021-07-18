@@ -134,10 +134,10 @@ function buildOnce(): Record<string, CompiledResult[]> {
       const glslxDoc = docs[doc.uri];
 
       results[doc.uri] = glslxDoc.regions.map((region, i) => {
-        const name = `${doc.uri}-region-${i}`;
+        const id = `${doc.uri}-region-${i}`;
         const contents = getVirtualGlslxContent(glslxDoc.source, region);
-        const result = glslx.compileIDE({ name, contents }, { fileAccess })
-        return { name, region, result };
+        const result = glslx.compileIDE({ name: id, contents }, { fileAccess })
+        return { id, docUri: doc.uri, region, result };
       });
     }
 
@@ -157,9 +157,6 @@ function buildLater(): void {
 }
 
 function getResult(request: server.TextDocumentPositionParams): CompiledResult | undefined {
-  // connection.window.showInformationMessage(
-  //   `[${openDocuments.keys().join(',')}][${request.textDocument.uri}]`
-  // );
   const doc = openDocuments.get(request.textDocument.uri);
   if (!doc) return;
 
@@ -174,7 +171,7 @@ function computeTooltip(request: server.TextDocumentPositionParams): server.Hove
 
   if (result) {
     let response = result.result.tooltipQuery({
-      source: result.name,
+      source: result.id,
       line: request.position.line,
       column: request.position.character,
 
@@ -200,52 +197,62 @@ function computeDefinitionLocation(request: server.TextDocumentPositionParams): 
 
   if (result) {
     let response = result.result.definitionQuery({
-      source: result.name,
+      source: result.id,
       line: request.position.line,
       column: request.position.character,
     });
 
     if (response.definition !== null) {
       return {
-        uri: response.definition.source,
+        uri: result.docUri,
         range: convertRange(response.definition),
       };
     }
   }
 }
 
-// function computeDocumentSymbols(request: server.DocumentSymbolParams): server.SymbolInformation[] | undefined {
-//   let result = buildResults()[request.textDocument.uri];
+function computeDocumentSymbols(request: server.DocumentSymbolParams): server.SymbolInformation[] | undefined {
+  let results = buildResults()[request.textDocument.uri];
 
-//   if (result) {
-//     let response = result.symbolsQuery({
-//       source: result.name,
-//     });
+  if (!results) {
+    return;
+  }
 
-//     if (response.symbols !== null) {
-//       return response.symbols.map(symbol => {
-//         return {
-//           name: symbol.name,
-//           kind:
-//             symbol.kind === 'struct' ? server.SymbolKind.Class :
-//               symbol.kind === 'function' ? server.SymbolKind.Function :
-//                 server.SymbolKind.Variable,
-//           location: {
-//             uri: symbol.range.source,
-//             range: convertRange(symbol.range),
-//           },
-//         };
-//       });
-//     }
-//   }
-// }
+  const symbols: server.SymbolInformation[] = [];
+
+  for (const result of results) {
+    let response = result.result.symbolsQuery({
+      source: result.id,
+    });
+  
+    if (!response.symbols) {
+      continue;
+    }
+
+    symbols.push(...response.symbols.map(symbol => {
+      return {
+        name: symbol.name,
+        kind:
+          symbol.kind === 'struct' ? server.SymbolKind.Class :
+            symbol.kind === 'function' ? server.SymbolKind.Function :
+              server.SymbolKind.Variable,
+        location: {
+          uri: result.docUri,
+          range: convertRange(symbol.range),
+        },
+      };
+    }));
+  }
+
+  return symbols;
+}
 
 function computeRenameEdits(request: server.RenameParams): server.WorkspaceEdit | undefined {
   let result = getResult(request);
 
   if (result) {
     let response = result.result.renameQuery({
-      source: result.name,
+      source: result.id,
       line: request.position.line,
       column: request.position.character,
     });
@@ -330,7 +337,7 @@ function computeCompletion(request: server.CompletionParams): server.CompletionI
 
   if (result) {
     let response = result.result.completionQuery({
-      source: result.name,
+      source: result.id,
       line: request.position.line,
       column: request.position.character,
     });
@@ -355,7 +362,7 @@ function computeSignature(request: server.SignatureHelpParams): server.Signature
 
   if (result) {
     let response = result.result.signatureQuery({
-      source: result.name,
+      source: result.id,
       line: request.position.line,
       column: request.position.character,
     });
@@ -430,9 +437,9 @@ function main(): void {
     // Support the go to symbol feature
     connection.onDocumentSymbol(request => {
       let info: server.SymbolInformation[] | undefined;
-      // reportErrors(() => {
-      //   info = computeDocumentSymbols(request);
-      // });
+      reportErrors(() => {
+        info = computeDocumentSymbols(request);
+      });
       return info;
     });
 

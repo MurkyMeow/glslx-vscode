@@ -1,6 +1,5 @@
 import * as glslx from 'glslx';
 import { TextDocument } from 'vscode';
-import { log } from './server';
 
 export interface Region {
   start: number;
@@ -13,7 +12,8 @@ export interface ParsedDoc {
 }
 
 export interface CompiledResult {
-  name: string;
+  id: string;
+  docUri: string;
   region: Region;
   result: glslx.CompileResultIDE;
 }
