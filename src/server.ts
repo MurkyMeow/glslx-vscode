@@ -13,11 +13,6 @@ import {
   isPositionInsideRegion,
 } from './embeddedSupport';
 
-interface GlslxDiagnostics {
-  diagnostics: glslx.Diagnostic[];
-  unusedSymbols: glslx.UnusedSymbol[];
-}
-
 let buildResults: () => Record<string, CompiledResult[] | undefined> = () => ({});
 let openDocuments: server.TextDocuments<TextDocument>;
 let connection: server.Connection;
@@ -59,35 +54,33 @@ function pathToURI(value: string): string {
   return uri.file(value).toString();
 }
 
-function getGlslxDocKey(doc: TextDocument, regionIdx: number): string {
-  return `${doc.uri}-region-${regionIdx}`;
-}
-
-function sendDiagnostics(diagnostics: Record<string, GlslxDiagnostics>): void {
+function sendDiagnostics(results: Record<string, CompiledResult[]>): void {
   let map: Record<string, server.Diagnostic[]> = {};
 
-  for (let key in diagnostics) {
-    const diagnostic = diagnostics[key];
+  for (const docUri in results) {
+    for (const { result } of results[docUri]) {
+      const { diagnostics, unusedSymbols } = result;
 
-    for (const d of diagnostic.diagnostics) {
-      if (!diagnostic.range) continue;
-      let group = map[key] || (map[key] = []);
-      group.push({
-        severity: diagnostic.kind === 'error' ? server.DiagnosticSeverity.Error : server.DiagnosticSeverity.Warning,
-        range: convertRange(diagnostic.range),
-        message: diagnostic.text,
-      });
-    }
+      for (let diagnostic of diagnostics) {
+        if (!diagnostic.range) continue;
+        let group = map[docUri] || (map[docUri] = []);
+        group.push({
+          severity: diagnostic.kind === 'error' ? server.DiagnosticSeverity.Error : server.DiagnosticSeverity.Warning,
+          range: convertRange(diagnostic.range),
+          message: diagnostic.text,
+        });
+      }
 
-    for (let symbol of unusedSymbols) {
-      let key = symbol.range!.source;
-      let group = map[key] || (map[key] = []);
-      group.push({
-        severity: server.DiagnosticSeverity.Hint,
-        range: convertRange(symbol.range!),
-        message: `${JSON.stringify(symbol.name)} is never used in this file`,
-        tags: [server.DiagnosticTag.Unnecessary],
-      });
+      for (let symbol of unusedSymbols) {
+        let key = symbol.range!.source;
+        let group = map[key] || (map[key] = []);
+        group.push({
+          severity: server.DiagnosticSeverity.Hint,
+          range: convertRange(symbol.range!),
+          message: `${JSON.stringify(symbol.name)} is never used in this file`,
+          tags: [server.DiagnosticTag.Unnecessary],
+        });
+      }
     }
   }
 
@@ -102,7 +95,6 @@ function sendDiagnostics(diagnostics: Record<string, GlslxDiagnostics>): void {
 function buildOnce(): Record<string, CompiledResult[]> {
   let results: Record<string, CompiledResult[]> = {};
   reportErrors(() => {
-    let diagnostics: Record<string, GlslxDiagnostics> = {};
     let docs: Record<string, ParsedDoc> = {};
 
     for (let doc of openDocuments.all()) {
@@ -142,21 +134,14 @@ function buildOnce(): Record<string, CompiledResult[]> {
       const glslxDoc = docs[doc.uri];
 
       results[doc.uri] = glslxDoc.regions.map((region, i) => {
-        const name = getGlslxDocKey(doc, i);
+        const name = `${doc.uri}-region-${i}`;
         const contents = getVirtualGlslxContent(glslxDoc.source, region);
-
-        const result = glslx.compileIDE(contents, { fileAccess })
-
-        diagnostics[name] = {
-          diagnostics: result.diagnostics,
-          unusedSymbols: result.unusedSymbols,
-        }
-
+        const result = glslx.compileIDE({ name, contents }, { fileAccess })
         return { name, region, result };
       });
     }
 
-    sendDiagnostics(diagnostics);
+    sendDiagnostics(results);
   });
   return results;
 }
