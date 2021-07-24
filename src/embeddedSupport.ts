@@ -1,4 +1,5 @@
 import * as glslx from 'glslx';
+import { TextDocument } from 'vscode';
 
 export interface Region {
   start: number;
@@ -11,13 +12,15 @@ export interface ParsedDoc {
 }
 
 export interface CompiledResult {
+  id: string;
+  docUri: string;
   region: Region;
   result: glslx.CompileResultIDE;
 }
 
 export function getGlslxRegions(documentText: string): Region[] {
   const regions: Region[] = [];
-  const tagPattern = /glsl|vert|frag|\/\* ?glsl ?\*\//g;
+  const tagPattern = /glsl|vert|frag|\/\* ?glsl ?\*\/ ?/g;
 
   let match: RegExpExecArray | null;
 
@@ -60,5 +63,5 @@ export function getVirtualGlslxContent(documentText: string, region: Region): st
 }
 
 export function isPositionInsideRegion(region: Region, offset: number): boolean {
-  return region.start > offset && region.end < offset;
+  return region.start < offset && region.end > offset;
 }
